@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Lenny's Newsletter",
+    "url": "https://www.lennysnewsletter.com/feed"
+  },
+  {
+    "name": "Ben's Bites",
+    "url": "https://bensbites.com/feed"
+  },
+  {
+    "name": "TechCrunch AI",
+    "url": "https://techcrunch.com/category/artificial-intelligence/feed/"
+  },
+  {
+    "name": "Crunchbase News",
+    "url": "https://news.crunchbase.com/feed/"
+  },
+  {
+    "name": "Inc42",
+    "url": "https://inc42.com/feed/"
+  },
+  {
+    "name": "Entrackr",
+    "url": "https://entrackr.com/rss"
+  },
+  {
+    "name": "Aakash Gupta",
+    "url": "https://www.aakashg.com/feed"
+  }
+]

@@ -1,0 +1,9 @@
+models:
+  groq:
+    default: "llama3-8b-8192"
+    context_limit: 8192
+    safety_margin: 0.8
+  gemini:
+    default: "gemini-1.5-flash"
+    context_limit: 1048576
+    safety_margin: 0.8

@@ -1,0 +1,45 @@
+name: Daily Jarvis Digest
+
+on:
+  schedule:
+    # Run every day at 13:00 UTC (9:00 AM Eastern / 6:00 AM Pacific)
+    - cron: '0 13 * * *'
+  # Allow running manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jarvis Digest
+        env:
+          PRODUCT_HUNT_API_KEY: ${{ secrets.PRODUCT_HUNT_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          RESEND_TO_EMAIL: ${{ secrets.RESEND_TO_EMAIL }}
+        run: npx tsx src/index.ts
+
+      - name: Commit state store changes
+        # This step commits the updated data/sent_items.json back to the repo
+        # so that duplicate items aren't sent tomorrow.
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/sent_items.json
+          git commit -m "chore: update sent items state store" || echo "No changes to commit"
+          git push
