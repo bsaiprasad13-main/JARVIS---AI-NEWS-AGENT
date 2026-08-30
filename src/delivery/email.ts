@@ -22,7 +22,7 @@ export async function sendDailyDigest(items: ProcessedItem[]) {
     const data = await resend.emails.send({
       from: `Jarvis Digest <${fromEmail}>`,
       to: [toEmail],
-      subject: `Jarvis PM Daily Digest - ${new Date().toLocaleDateString()}`,
+      subject: `JARVIS - AI NEWS REPORTER - ${new Date().toLocaleDateString()}`,
       html: html,
     });
     console.log('Email sent successfully:', data);
@@ -64,7 +64,7 @@ function generateEmailHtml(items: ProcessedItem[]): string {
   return `
     <html>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #111827; text-align: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 16px;">Jarvis PM Daily Digest</h1>
+        <h1 style="color: #111827; text-align: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 16px;">JARVIS - AI NEWS REPORTER</h1>
         <p style="text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 32px;">
           Your curated list of PM tools and news for ${new Date().toLocaleDateString()}
         </p>
