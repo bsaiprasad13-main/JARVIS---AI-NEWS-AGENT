@@ -9,10 +9,16 @@ export async function sendDailyDigest(items: ProcessedItem[]) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const fromEmail = process.env.RESEND_FROM_EMAIL;
-  const toEmail = process.env.RESEND_TO_EMAIL;
+  
+  const toEmails = new Set<string>(['bsaiprasad13@gmail.com', 'hariharsatwik03@gmail.com']);
+  if (process.env.RESEND_TO_EMAIL) {
+    process.env.RESEND_TO_EMAIL.split(',').forEach(e => {
+      if (e.trim()) toEmails.add(e.trim());
+    });
+  }
 
-  if (!fromEmail || !toEmail) {
-    console.error('RESEND_FROM_EMAIL or RESEND_TO_EMAIL is missing from .env');
+  if (!fromEmail || toEmails.size === 0) {
+    console.error('RESEND_FROM_EMAIL or toEmails is missing');
     return;
   }
 
@@ -21,7 +27,7 @@ export async function sendDailyDigest(items: ProcessedItem[]) {
   try {
     const data = await resend.emails.send({
       from: `Jarvis Digest <${fromEmail}>`,
-      to: [toEmail],
+      to: Array.from(toEmails),
       subject: `JARVIS - AI NEWS REPORTER - ${new Date().toLocaleDateString()}`,
       html: html,
     });
