@@ -23,7 +23,7 @@ async function main() {
 
   if (newItems.length === 0) {
     console.log('No new items to process today. Exiting.');
-    return;
+    process.exit(0);
   }
 
   // 3. Filter by quality bar
@@ -32,7 +32,7 @@ async function main() {
 
   if (highQualityItems.length === 0) {
     console.log('No items passed the quality bar today. Exiting.');
-    return;
+    process.exit(0);
   }
 
   // 4. Summarize and deduplicate within the day via LLM
@@ -42,7 +42,7 @@ async function main() {
 
   if (processedItems.length === 0) {
     console.log('No items returned from LLM. Exiting.');
-    return;
+    process.exit(0);
   }
 
   // 5. Send email
@@ -56,8 +56,10 @@ async function main() {
   }
 
   console.log('Jarvis Digest workflow completed successfully.');
+  process.exit(0);
 }
 
 main().catch((error) => {
   console.error('Fatal error in Jarvis Digest workflow:', error);
+  process.exit(1);
 });
