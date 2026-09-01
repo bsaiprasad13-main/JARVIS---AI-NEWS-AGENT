@@ -1,10 +1,7 @@
 name: Daily Jarvis Digest
 
 on:
-  schedule:
-    # Run every day at 3:30 UTC (9:00 AM IST)
-    - cron: '30 3 * * *'
-  # Allow running manually from the Actions tab
+  # Allow running manually from the Actions tab or via API (cron-job.org)
   workflow_dispatch:
 
 jobs:
