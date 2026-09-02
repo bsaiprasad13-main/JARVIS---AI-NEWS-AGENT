@@ -15,9 +15,6 @@ export async function sendDailyDigest(items: ProcessedItem[]) {
     process.env.RESEND_TO_EMAIL.split(',').forEach((e) => {
       if (e.trim()) toEmails.add(e.trim());
     });
-  } else {
-    toEmails.add('bsaiprasad13@gmail.com');
-    toEmails.add('hariharsatwik03@gmail.com');
   }
 
   if (!fromEmail || toEmails.size === 0) {
