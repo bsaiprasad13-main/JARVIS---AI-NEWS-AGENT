@@ -10,10 +10,11 @@ The system is a scheduled batch-processing pipeline that runs daily. It ingests 
 
 ### 2.1 Data Ingestion Layer (Fetchers)
 Responsible for pulling content from external sources. It handles different data structures:
-*   **Standard RSS Fetchers:** For Lenny's Newsletter, Ben's Bites, TechCrunch AI, Crunchbase News, Inc42, Entrackr, Aakash Gupta.
-*   **Sources:** 10 verified sources including standard RSS feeds, Product Hunt GraphQL, Hacker News REST API, and custom HTML scraping.
-*   **Resiliency:** Features an HTML Auto-Discovery fallback for RSS feeds that return 404s, ensuring links that change domains or paths are automatically found and parsed.
-*   **Tasks Performed:** Fetch raw data, normalize into the `RawItem` schema. Rundown AI (where multiple stories are bundled in a single HTML payload).
+*   **Standard RSS Fetchers:** For Lenny's Newsletter, Ben's Bites, TechCrunch AI, Crunchbase News, Inc42, Entrackr, Aakash Gupta, OpenAI Blog, and Google DeepMind.
+*   **Custom Fetchers:** For Anthropic Blog (featuring primary and fallback mirror logic), Product Hunt GraphQL, Hacker News REST API, and custom HTML scraping (The Rundown).
+*   **Sources:** Currently covers 12 verified sources.
+*   **Resiliency:** Features an HTML Auto-Discovery fallback for RSS feeds that return 404s, ensuring links that change domains or paths are automatically found and parsed. Anthropic utilizes specific primary and GitHub pages fallback endpoints.
+*   **Tasks Performed:** Fetch raw data, normalize into the `RawItem` schema.
 *   **Enrichment:** Specifically for Hacker News, where descriptions are missing, a sub-module fetches the linked page's HTML to extract `og:description` or `meta name="description"`.
 
 ### 2.2 Processing & Filtering Layer
@@ -22,8 +23,8 @@ Responsible for pulling content from external sources. It handles different data
     *   Hacker News: >= 30 points OR >= 15 comments.
     *   Newsletters/News sites: Auto-pass (curation is considered pre-verification).
 *   **Deduplication Engine:**
-    *   *Intra-day:* Merges duplicate stories/tools from different sources on the same day, keeping the most reliable source.
-    *   *Inter-day:* Checks a lightweight state store (e.g., flat JSON or CSV file) to prevent sending items that have been included in previous digests.
+    *   *Intra-day:* Merges duplicate stories/tools from different sources on the same day by matching exact URLs or applying a normalized title similarity check (ignoring case and non-alphanumeric characters).
+    *   *Inter-day:* Checks a lightweight state store (`sent_items.json`) to prevent sending items that have been included in previous digests.
 
 ### 2.3 AI Processing Layer (Dual-Provider Router)
 This is the core intelligence of the system, responsible for summarization and tagging.
@@ -31,7 +32,7 @@ This is the core intelligence of the system, responsible for summarization and t
 *   **Token & Rate Management:** Tracks RPM, TPM, RPD, and TPD using a sliding window and reserves tokens before dispatching requests. Applies an 80% safety margin.
 *   **Smart Chunking:** If a payload exceeds the provider's context limit, it intelligently splits the text at semantic boundaries (documents -> paragraphs -> sentences -> words).
 *   **Failover & Backoff:** Handles HTTP 429 errors with exponential backoff and automatically fails over to the healthy provider if one is exhausted or down.
-*   **Tasks Performed:** Generates a one-line summary and a one-line explanation of PM relevance, mapping to predefined PM skill tags.
+*   **Tasks Performed:** Generates a one-line summary and a one-line explanation of PM relevance. Instead of predefined tags, the LLM dynamically generates 2-3 concise keyword tags that best categorize the news item.
 
 ### 2.4 Delivery Layer
 *   **Email Composer:** Assembles the processed items into a clean, categorized HTML email format, ensuring each item explicitly displays its original source.

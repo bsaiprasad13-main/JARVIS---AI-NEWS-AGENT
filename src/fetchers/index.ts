@@ -3,6 +3,7 @@ import { RssFetcher } from './rssFetcher';
 import { ProductHuntFetcher } from './productHuntFetcher';
 import { HackerNewsFetcher } from './hackerNewsFetcher';
 import { RundownFetcher } from './rundownFetcher';
+import { AnthropicFetcher } from './anthropicFetcher';
 import { RawItem } from '../models/types';
 
 import fs from 'fs';
@@ -22,6 +23,7 @@ export async function fetchAll(): Promise<RawItem[]> {
     new ProductHuntFetcher(),
     new HackerNewsFetcher(),
     new RundownFetcher(),
+    new AnthropicFetcher(),
   ];
 
   console.log(`Starting fetch from ${fetchers.length} fetchers...`);

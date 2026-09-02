@@ -26,5 +26,13 @@
   {
     "name": "Aakash Gupta",
     "url": "https://www.aakashg.com/feed"
+  },
+  {
+    "name": "OpenAI Blog",
+    "url": "https://openai.com/news/rss.xml"
+  },
+  {
+    "name": "Google DeepMind",
+    "url": "https://deepmind.google/blog/feed/basic/"
   }
 ]

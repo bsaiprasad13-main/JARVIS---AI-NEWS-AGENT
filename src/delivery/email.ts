@@ -12,7 +12,7 @@ export async function sendDailyDigest(items: ProcessedItem[]) {
 
   const toEmails = new Set<string>();
   if (process.env.RESEND_TO_EMAIL) {
-    process.env.RESEND_TO_EMAIL.split(',').forEach(e => {
+    process.env.RESEND_TO_EMAIL.split(',').forEach((e) => {
       if (e.trim()) toEmails.add(e.trim());
     });
   } else {

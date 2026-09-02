@@ -2,7 +2,9 @@ import 'dotenv/config';
 import { fetchAll } from './fetchers/index';
 import { StateStore } from './store/stateStore';
 import { applyQualityBar } from './processor/filter';
-import { summarizeItems } from './summarizer/groq';
+import { deduplicateItems } from './processor/dedup';
+import { summarizeItemsGroq } from './summarizer/groq';
+import { summarizeItemsGemini } from './summarizer/gemini';
 import { sendDailyDigest } from './delivery/email';
 import path from 'path';
 
@@ -11,8 +13,13 @@ async function main() {
 
   // 1. Fetch items
   console.log('Fetching items from all sources...');
-  const allItems = await fetchAll();
+  let allItems = await fetchAll();
   console.log(`Fetched total of ${allItems.length} items.`);
+
+  console.log('Deduplicating fetched items...');
+  const originalCount = allItems.length;
+  allItems = deduplicateItems(allItems);
+  console.log(`Removed ${originalCount - allItems.length} duplicates. Total is now ${allItems.length}.`);
 
   // 2. Deduplicate across days
   const storePath = path.join(__dirname, '../data/sent_items.json');
@@ -35,10 +42,27 @@ async function main() {
     process.exit(0);
   }
 
-  // 4. Summarize and deduplicate within the day via LLM
-  console.log('Sending to Groq Llama-3 for summarization and deduplication...');
-  const processedItems = await summarizeItems(highQualityItems);
-  console.log(`Received ${processedItems.length} processed and merged items from LLM.`);
+  // 4. Summarize and deduplicate within the day via LLMs
+  console.log('Splitting items by source and sending to Groq and Gemini...');
+
+  const groqItems = highQualityItems.filter(
+    (item) => item.source === 'Product Hunt' || item.source === 'Hacker News',
+  );
+  const geminiItems = highQualityItems.filter(
+    (item) => item.source !== 'Product Hunt' && item.source !== 'Hacker News',
+  );
+
+  console.log(
+    `Sending ${groqItems.length} items to Groq and ${geminiItems.length} items to Gemini...`,
+  );
+
+  const [groqProcessed, geminiProcessed] = await Promise.all([
+    summarizeItemsGroq(groqItems),
+    summarizeItemsGemini(geminiItems),
+  ]);
+
+  const processedItems = [...groqProcessed, ...geminiProcessed];
+  console.log(`Received ${processedItems.length} processed and merged items from LLMs.`);
 
   if (processedItems.length === 0) {
     console.log('No items returned from LLM. Exiting.');
