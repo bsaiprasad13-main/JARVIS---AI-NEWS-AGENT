@@ -1,6 +1,8 @@
 name: Daily Jarvis Digest
 
 on:
+  schedule:
+    - cron: '0 8 * * *'
   # Allow running manually from the Actions tab or via API (cron-job.org)
   workflow_dispatch:
 

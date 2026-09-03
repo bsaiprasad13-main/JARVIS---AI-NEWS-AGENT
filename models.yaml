@@ -1,6 +1,6 @@
 models:
   groq:
-    default: "llama-3.1-8b-instant"
+    default: "qwen/qwen3.8-27b"
     context_limit: 8192
     tpm: 30000
     rpm: 30

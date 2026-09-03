@@ -95,12 +95,21 @@ export class RateLimiter {
       
       console.log(`[RateLimiter] Dispatching chunk ${i + 1}/${chunks.length} (${chunk.items.length} items, ~${chunk.tokens} tokens)...`);
       
-      try {
-        const chunkResults = await processChunk(chunk.items);
-        results.push(...chunkResults);
-      } catch (error) {
-        console.error(`[RateLimiter] Error processing chunk ${i + 1}:`, error);
-        // We do not break here to allow remaining chunks a chance to succeed.
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const chunkResults = await processChunk(chunk.items);
+          results.push(...chunkResults);
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            console.error(`[RateLimiter] Error processing chunk ${i + 1} after retries:`, error);
+          } else {
+            console.warn(`[RateLimiter] Error processing chunk ${i + 1}. Retrying in 5s...`, error);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        }
       }
     }
 
