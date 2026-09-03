@@ -1,7 +1,7 @@
 import { WorkerAgent } from './worker';
 import { AgentMemory } from './memory';
 
-export type Strategy = 'retry_immediately' | 'swap_to_safe_side' | 'split_and_conquer' | 'hibernate' | 're_prompt_with_correction' | 'adjust_prompt_and_retry' | 'skip_source_for_today' | 'alert_admin_fallback';
+export type Strategy = 'retry_immediately' | 'swap_to_safe_side' | 'split_and_conquer' | 'hibernate' | 're_prompt_with_correction' | 'adjust_prompt_and_retry' | 'skip_source_for_today' | 'alert_admin_fallback' | 'escalate_to_developer' | string;
 
 export class SupervisorAgent {
   protected memory: AgentMemory;
@@ -34,6 +34,7 @@ Pick one of the following strategies to recover:
 - alert_admin_fallback (if it's a fatal delivery failure)
 - hibernate (if all keys are exhausted)
 - retry_immediately (for generic transient network errors)
+- escalate_to_developer (if the error is completely unknown and none of the above apply)
 
 Return ONLY the strategy name.`;
 
@@ -76,7 +77,13 @@ Return ONLY the strategy name.`;
          } else if (strat === 're_prompt_with_correction' || strat === 'adjust_prompt_and_retry') {
             console.log(`[${this.id}] Retrying with adjustment...`);
             // Custom prompt changes would happen in the task callback based on attempts
-         } else {
+         } else if (strat === 'escalate_to_developer') {
+            console.warn(`[${this.id}] Escalating unknown error to Safe-Side Developer Agent!`);
+            throw new Error(`ESCALATE_TO_DEVELOPER:${err.message || String(err)}`);
+         }
+         // [AUTO_GENERATED_STRATEGIES_START]
+         // [AUTO_GENERATED_STRATEGIES_END]
+         else {
            console.log(`[${this.id}] Retrying immediately...`);
          }
        }
