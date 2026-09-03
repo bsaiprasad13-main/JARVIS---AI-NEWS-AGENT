@@ -3,7 +3,14 @@ import { GoogleGenerativeAI, GenerationConfig } from '@google/generative-ai';
 export class WorkerAgent {
   private genAI: GoogleGenerativeAI;
   public id: string;
-  public activeModel: string = 'gemini-1.5-flash';
+  
+  // Model hierarchy to cycle through
+  private modelHierarchy = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'];
+  private currentModelIndex = 0;
+  
+  public get activeModel(): string {
+    return this.modelHierarchy[this.currentModelIndex]!;
+  }
 
   constructor(id: string, apiKey: string) {
     this.id = id;
@@ -12,8 +19,12 @@ export class WorkerAgent {
   }
 
   public switchToSmarterModel() {
-    this.activeModel = 'gemini-1.5-pro';
-    console.log(`[${this.id}] Upgraded internal model to ${this.activeModel}`);
+    if (this.currentModelIndex < this.modelHierarchy.length - 1) {
+       this.currentModelIndex++;
+       console.log(`[${this.id}] Upgraded internal model to ${this.activeModel}`);
+    } else {
+       console.log(`[${this.id}] Already at the maximum model tier (${this.activeModel}). Cannot upgrade further.`);
+    }
   }
 
   public async generateJSON(prompt: string, schema: any): Promise<any> {
