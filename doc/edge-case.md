@@ -24,14 +24,16 @@ This document identifies potential edge cases, failure modes, and corner cases f
 *   **2.3 Zero Qualifying Items:** On a slow news day, 0 items might pass the verification thresholds across all sources.
     *   *Handling:* The system should detect an empty `FilteredItem` array and gracefully exit *without* sending an empty email to the user.
 
-## 3. AI Processing (Dual-Provider Router)
+## 3. AI Processing (7-Agent Supervisor Architecture)
 
-*   **3.1 Simultaneous Provider Failure:** Both Groq and Gemini APIs are down, timeout, or hit hard rate limits simultaneously.
-    *   *Handling:* Given this is a batch job, if both fail after exponential backoff retries, the system should gracefully exit. The implicit failure indicator (no email received that day) will alert the user.
-*   **3.2 LLM Hallucinated Tags:** The LLM might assign a PM skill tag that is *not* in the strictly defined list of 13 approved tags (e.g., assigning "Software Engineering" instead of "No-code / prototyping").
+*   **3.1 API Rate Limits & Exhaustion:** The free-tier Gemini API hits a 429 quota exhausted error during a heavy news day.
+    *   *Handling:* Supervisor catches the 429 error and uses the `swap_to_safe_side` strategy to dynamically hot-swap the exhausted Worker's API key with the reserve Safe-Side agent's API key.
+*   **3.2 Poor Output Quality / Malformed JSON:** The fast model (`gemini-1.5-flash`) fails to understand a complex article and returns broken JSON, causing a `SyntaxError`.
+    *   *Handling:* Supervisor catches the `MALFORMED_JSON` error and uses the `swap_to_smarter_model` strategy to dynamically upgrade the worker to `gemini-1.5-pro`, then retries the exact same task.
+*   **3.3 Unknown / Catastrophic Errors:** A completely new error that the Supervisor has no predefined strategy for crashes the pipeline.
+    *   *Handling:* Supervisor uses the `escalate_to_developer` strategy. The Safe-Side agent wakes up as a Developer, writes a TypeScript patch into `src/agents/supervisor.ts` to handle the new error, pushes to GitHub, and restarts the Railway server to heal the system.
+*   **3.4 LLM Hallucinated Tags:** The LLM might assign a PM skill tag that is *not* in the strictly defined list of 13 approved tags.
     *   *Handling:* The prompt must strongly enforce the allowed tags. Post-generation, the system must validate the tag. If invalid, it should either coerce it to the closest match or default to "General productivity".
-*   **3.3 Formatting Non-Compliance:** The LLM might return a multi-paragraph summary instead of the requested "one-line summary" and "one-line explanation", breaking the email layout.
-    *   *Handling:* Use structured outputs (e.g., JSON schema enforcement if supported by the provider, or strict regex extraction).
 *   **3.4 Content Safety Triggers:** An AI tool related to cybersecurity or scraping might trigger the LLM's safety/harm filters, resulting in a refused generation.
     *   *Handling:* Catch the safety refusal exception. If an item is blocked, discard the item and log it, proceeding with the rest of the batch.
 *   **3.5 Un-chunkable Giant Payloads:** An item has an enormous, un-chunkable block of text with no spaces or semantic boundaries (rare, but possible in raw HTML dumps).
