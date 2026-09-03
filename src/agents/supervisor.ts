@@ -1,7 +1,7 @@
 import { WorkerAgent } from './worker';
 import { AgentMemory } from './memory';
 
-export type Strategy = 'retry_immediately' | 'swap_to_safe_side' | 'split_and_conquer' | 'hibernate' | 're_prompt_with_correction' | 'adjust_prompt_and_retry' | 'skip_source_for_today' | 'alert_admin_fallback' | 'escalate_to_developer' | string;
+export type Strategy = 'retry_immediately' | 'swap_to_safe_side' | 'swap_to_smarter_model' | 'split_and_conquer' | 'hibernate' | 're_prompt_with_correction' | 'adjust_prompt_and_retry' | 'skip_source_for_today' | 'alert_admin_fallback' | 'escalate_to_developer' | string;
 
 export class SupervisorAgent {
   protected memory: AgentMemory;
@@ -27,6 +27,7 @@ Past Memory: ${JSON.stringify(this.memory.getMemory())}
 
 Pick one of the following strategies to recover:
 - swap_to_safe_side (if 503 or 429 quota exhausted)
+- swap_to_smarter_model (if MALFORMED_JSON or output quality is poor)
 - split_and_conquer (if context window overflow or too much data)
 - re_prompt_with_correction (if JSON is malformed)
 - adjust_prompt_and_retry (if output quality is bad)
@@ -66,6 +67,9 @@ Return ONLY the strategy name.`;
          if (strat === 'swap_to_safe_side') {
            console.log(`[${this.id}] Swapping to safe side agent!`);
            currentWorker = this.safeSideWorker;
+         } else if (strat === 'swap_to_smarter_model') {
+           console.log(`[${this.id}] Upgrading to a smarter model...`);
+           currentWorker.switchToSmarterModel();
          } else if (strat === 'hibernate') {
            console.log(`[${this.id}] Hibernating workflow.`);
            throw new Error('HIBERNATING');

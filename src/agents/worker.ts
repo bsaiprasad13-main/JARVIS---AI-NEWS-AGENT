@@ -3,6 +3,7 @@ import { GoogleGenerativeAI, GenerationConfig } from '@google/generative-ai';
 export class WorkerAgent {
   private genAI: GoogleGenerativeAI;
   public id: string;
+  public activeModel: string = 'gemini-1.5-flash';
 
   constructor(id: string, apiKey: string) {
     this.id = id;
@@ -10,9 +11,14 @@ export class WorkerAgent {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
+  public switchToSmarterModel() {
+    this.activeModel = 'gemini-1.5-pro';
+    console.log(`[${this.id}] Upgraded internal model to ${this.activeModel}`);
+  }
+
   public async generateJSON(prompt: string, schema: any): Promise<any> {
     const model = this.genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: this.activeModel,
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: schema,
@@ -39,7 +45,7 @@ export class WorkerAgent {
   }
 
   public async generateText(prompt: string): Promise<string> {
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = this.genAI.getGenerativeModel({ model: this.activeModel });
     try {
       const result = await model.generateContent(prompt);
       return result.response.text();
