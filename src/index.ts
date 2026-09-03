@@ -18,15 +18,17 @@ app.post('/api/webhooks/resend', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log('Jarvis Digest service started. Cron scheduled for 08:00 UTC daily.');
+  console.log('Jarvis Digest service started. Cron scheduled for 09:00 IST daily.');
 });
 
-// Run daily at 08:00 UTC
-cron.schedule('0 8 * * *', async () => {
+// Run daily at 09:00 IST
+cron.schedule('0 9 * * *', async () => {
   console.log('Cron triggered: Starting Jarvis Digest workflow...');
   try {
     await runDailyDigest();
   } catch (error) {
     console.error('Fatal error in cron workflow execution:', error);
   }
+}, {
+  timezone: "Asia/Kolkata"
 });
