@@ -71,11 +71,11 @@ An item qualifies for inclusion only if it shows real traction:
 - **Across days:** maintain a lightweight state log (flat file or spreadsheet) of previously sent items to avoid repeats.
 
 ### 5.4 Summarization
-- Summarization and data analysis will be powered by Groq (`openai/gpt-oss-20b`) and Google Gemini (`gemini-3-flash-preview`).
+- Summarization and data analysis will be powered exclusively by **Google Gemini**, orchestrated through a **7-Agent Autonomous Architecture**.
 - The system must generate, per item:
   - One-line summary of the tool/news
   - One-line explanation of why it's relevant to the reader's PM work, referencing the mapped tag(s)
-- Workload distribution and rate limit management are handled by a dedicated Capacity-Aware Router (see **Section 6** for detailed architecture).
+- Workload distribution, rate limit management, and error handling are dynamically managed by Supervisor Agents (see **Section 6** for detailed architecture).
 
 ### 5.5 Volume Control
 - No fixed item count. Ceiling of ~8–10 items per day; no minimum — only items clearing the quality bar are included, even if that means fewer than 8 on a given day.
@@ -83,42 +83,33 @@ An item qualifies for inclusion only if it shows real traction:
 ### 5.6 Delivery
 - Send one daily email containing all qualifying items categorized by category, each tagged by PM skill area, and explicitly displaying its original source.
 
-## 6. AI Dual-Provider Capacity-Aware Router Architecture
+## 6. 7-Agent Autonomous Supervisor Architecture
 
 ### 6.1 Core Objective
-The system dynamically distributes LLM workloads between Groq and Gemini. While targeting a 50/50 split, safety, available capacity, and rate limits strictly override this target. If one provider is tapped out or unavailable, traffic dynamically shifts to the other. 
+The system completely replaces linear scripting with an intelligent Agent hierarchy to guarantee reliability. It dynamically distributes LLM workloads across multiple isolated API keys. If a worker fails, a Supervisor agent dynamically assesses the error and picks a recovery strategy to ensure the workflow never drops data.
 
-### 6.2 Configuration & Security
-- **Single Source of Truth:** Model names, context limits, and rate limits will be centralized in a configuration file (e.g., `models.yaml`), entirely separate from the codebase.
-- **Dynamic Limits:** Gemini's limits are project-specific and will be populated based on the user's Google AI Studio configuration.
-- **Secret Management:** API keys must never be hard-coded, logged, or committed to version control. They are exclusively managed via environment variables (`.env` locally, Railway variables in production).
+### 6.2 The Agent Roles
+- **Supervisor A (Curation):** Manages data ingestion, filtering, and deduplication.
+- **Supervisor B (Content & Delivery):** Manages HTML formatting and dispatch.
+- **Workers 1-4 (Execution):** Specialized Gemini instances running on isolated API keys to distribute load and evade rate limits.
+- **Safe-Side Agent (Developer):** A highly restricted agent. If a catastrophic error occurs, this agent writes a TypeScript patch into the source code, compiles it, pushes it to GitHub, and restarts the server to heal the system.
 
-### 6.3 Rate Limiting & Token Management
-- **Token Estimation & Reservation:** Input tokens are estimated and reserved before dispatching to prevent concurrent requests from exceeding quotas. The system updates accounting with actual token usage post-execution.
-- **Sliding Window:** RPM, TPM, RPD, and TPD are tracked continuously over time using timestamps, not simple app-restart counters.
-- **Safety Margin:** An adjustable safety margin (default 80%) will be applied to all limits to account for token counting discrepancies, system prompts, and API overhead.
+### 6.3 Dynamic Failsafe Strategies & Memory
+- **Strategy Toolbox:** Supervisors can pick strategies like `retry_immediately` (transient errors), `swap_to_safe_side` (429 quota exhaustion), or `swap_to_smarter_model` (poor quality / malformed JSON).
+- **Persistent Memory:** Supervisors record their chosen strategies to `data/supervisor_memory.json` to "learn" how to handle errors across daily runs.
+- **Model Upgrades:** If a fast model (`gemini-1.5-flash`) fails to reason through complex data, the Supervisor dynamically upgrades the worker to `gemini-1.5-pro` or `gemini-1.0-pro` for that specific chunk.
 
-### 6.4 Smart Data Splitting
-- The router distinguishes between *context limits* (how much fits in one request) and *rate limits* (how much data is allowed over time).
-- If a payload exceeds the safe context limit, it will be automatically and intelligently split into chunks respecting semantic boundaries (document -> paragraph -> sentence -> word), rather than blindly cutting in the middle of words.
-- Splitting is conditional; it only occurs if the selected provider cannot handle the payload in a single request.
-
-### 6.5 Resilience & Backoff
-- **Graceful Degradation:** The system handles HTTP 429 (Too Many Requests) errors by applying exponential backoff to the affected provider and automatically failing over to the healthy provider.
-- **No Data Loss:** If both providers fail or exhaust limits, the requests are queued rather than dropped.
-
-### 6.6 Extensibility & Observability
-- **Provider Adapters:** Uses a base interface (e.g., `LLMProvider`) so future providers can be integrated without modifying the core routing logic.
-- **Monitoring Layer:** Logs provider status, active models, RPM/TPM usage, and remaining capacities for debugging and observability.
+### 6.4 Configuration & Security
+- **Secret Management:** API keys must never be hard-coded. They are exclusively managed via environment variables (`.env` locally, Railway variables in production).
 
 ## 7. Non-Functional Requirements
 
-- **Hosting:** Railway
-- **Scheduling:** GitHub Actions, triggered daily
-- **Cost:** Free-tier sources and free-tier Groq API only; no paid dependencies for v1
-- **Reliability:** Failures (source API down, LLM call failure) should be logged. The absence of the daily email will serve as the implicit indicator that the system has crashed; no explicit failure emails will be sent.
-- **Maintainability:** Solo-buildable and maintainable without a dedicated backend team; no database — use a lightweight file-based state store for dedup.
-- **Secret Management:** API keys (Product Hunt, Groq, Gemini, Resend) will be stored in a `.env` file for local development and managed via Railway environment variables in production.
+- **Hosting:** Railway (Persistent Express Node.js Server).
+- **Scheduling:** `node-cron` running continuously on the Express server, triggering at 09:00 AM IST.
+- **Cost:** Free-tier sources and multiple free-tier Gemini API keys.
+- **Reliability:** The 7-Agent architecture handles self-healing. If an unrecoverable failure occurs, a `sendSOSAlert` webhook immediately notifies the admin.
+- **Maintainability:** Solo-buildable; uses a lightweight file-based state store for dedup (`sent_items.json`) and memory (`supervisor_memory.json`).
+- **Secret Management:** API keys (Product Hunt, multiple Gemini keys, Resend) will be stored in a `.env` file for local development and managed via Railway environment variables in production.
 - **Testing:** The full pipeline will be tested locally before deployment to GitHub Actions and Railway.
 
 ## 8. Success Criteria

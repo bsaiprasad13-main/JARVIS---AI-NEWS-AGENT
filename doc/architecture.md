@@ -1,62 +1,56 @@
-# Architecture: Jarvis (PM-Focused AI Tools & News Digest System)
+# Architecture: Jarvis (7-Agent Autonomous System)
 
 This document outlines the architecture for the automated daily digest system designed to discover, filter, verify, and summarize PM-relevant AI tools and news.
 
 ## 1. High-Level System Overview
 
-The system is a scheduled batch-processing pipeline that runs daily. It ingests data from various free sources (RSS, APIs, HTML), filters out noise based on predefined quality thresholds, deduplicates items, leverages LLMs (Groq and Gemini) for summarization and tagging, and finally dispatches a consolidated email digest.
+The system is a continuous Express server scheduled via `node-cron`. It ingests data from various free sources, filters out noise, deduplicates items, and leverages a **7-Agent Supervisor Architecture** powered by Google Gemini to curate, summarize, format, and deliver an HTML email digest. The architecture is deeply fault-tolerant, featuring self-healing code generation and dynamic memory persistence.
 
 ## 2. Core Components
 
-### 2.1 Data Ingestion Layer (Fetchers)
-Responsible for pulling content from external sources. It handles different data structures:
-*   **Standard RSS Fetchers:** For Lenny's Newsletter, Ben's Bites, TechCrunch AI, Crunchbase News, Inc42, Entrackr, Aakash Gupta, OpenAI Blog, and Google DeepMind.
-*   **Custom Fetchers:** For Anthropic Blog (featuring primary and fallback mirror logic), Product Hunt GraphQL, Hacker News REST API, and custom HTML scraping (The Rundown).
-*   **Sources:** Currently covers 12 verified sources.
-*   **Resiliency:** Features an HTML Auto-Discovery fallback for RSS feeds that return 404s, ensuring links that change domains or paths are automatically found and parsed. Anthropic utilizes specific primary and GitHub pages fallback endpoints.
-*   **Tasks Performed:** Fetch raw data, normalize into the `RawItem` schema.
-*   **Enrichment:** Specifically for Hacker News, where descriptions are missing, a sub-module fetches the linked page's HTML to extract `og:description` or `meta name="description"`.
+### 2.1 The 7-Agent Supervisor Architecture
+The system completely replaces linear scripting with an intelligent Agent hierarchy.
+*   **Supervisor A (Curation)**: Manages Worker 1 and Worker 2. Responsible for parsing raw JSON streams, filtering irrelevant data, and deduplicating items across sources.
+*   **Supervisor B (Content & Delivery)**: Manages Worker 3 and Worker 4. Responsible for writing the final HTML payload and initiating the Resend email dispatch.
+*   **Workers 1-4 (Execution)**: Specialized Gemini AI instances, each running on a completely isolated API Key.
+*   **Safe-Side Agent (Fallback / Developer)**: An isolated Agent running on a highly-restricted reserve API key. Used as a final fallback for operations or as a "Developer" to write code patches.
 
-### 2.2 Processing & Filtering Layer
-*   **Quality Gate:** Applies source-specific thresholds to ensure only high-traction items proceed.
-    *   Product Hunt: >= 50 upvotes in 24h.
-    *   Hacker News: >= 30 points OR >= 15 comments.
-    *   Newsletters/News sites: Auto-pass (curation is considered pre-verification).
-*   **Deduplication Engine:**
-    *   *Intra-day:* Merges duplicate stories/tools from different sources on the same day by matching exact URLs or applying a normalized title similarity check (ignoring case and non-alphanumeric characters).
-    *   *Inter-day:* Checks a lightweight state store (`sent_items.json`) to prevent sending items that have been included in previous digests.
+### 2.2 Dynamic Failsafe Strategies & Strategy Memory
+When a Worker fails (e.g. 429 quota exhaustion, 503 outage, MALFORMED_JSON), the managing Supervisor catches the error and consults its LLM brain to pick a recovery strategy:
+*   **`retry_immediately`**: For transient network errors.
+*   **`swap_to_safe_side`**: Instantly hot-swaps the failing Worker's API key with the Safe-Side agent's API key to bypass rate limits.
+*   **`swap_to_smarter_model`**: Dynamically steps the Worker up the model hierarchy (e.g., from `gemini-1.5-flash` to `gemini-1.5-pro` to `gemini-1.0-pro`) if the output quality is poor.
+*   **Strategy Memory**: All chosen strategies are persisted to `data/supervisor_memory.json`. Supervisors load this file on boot so they don't repeat the same mistakes tomorrow.
 
-### 2.3 AI Processing Layer (Dual-Provider Router)
-This is the core intelligence of the system, responsible for summarization and tagging.
-*   **Capacity-Aware Router:** Dynamically distributes workloads between Groq (`openai/gpt-oss-20b`) and Google Gemini (`gemini-3-flash-preview`).
-*   **Token & Rate Management:** Tracks RPM, TPM, RPD, and TPD using a sliding window and reserves tokens before dispatching requests. Applies an 80% safety margin.
-*   **Smart Chunking:** If a payload exceeds the provider's context limit, it intelligently splits the text at semantic boundaries (documents -> paragraphs -> sentences -> words).
-*   **Failover & Backoff:** Handles HTTP 429 errors with exponential backoff and automatically fails over to the healthy provider if one is exhausted or down.
-*   **Tasks Performed:** Generates a one-line summary and a one-line explanation of PM relevance. Instead of predefined tags, the LLM dynamically generates 2-3 concise keyword tags that best categorize the news item.
+### 2.3 Self-Healing Code Generation (Developer Agent)
+If a completely novel, unhandled error occurs, the Supervisor triggers the `escalate_to_developer` strategy.
+1. The Safe-Side agent wakes up in "Developer Mode".
+2. It physically loads `src/agents/supervisor.ts` into memory.
+3. It writes a raw TypeScript `else if` block to handle the new error.
+4. It injects the code into the file, verifies syntax with `tsc`, pushes to GitHub, and kills the Node process to force Railway to restart with the new code.
 
-### 2.4 Delivery Layer
-*   **Email Composer:** Assembles the processed items into a clean, categorized HTML email format, ensuring each item explicitly displays its original source.
-*   **Dispatcher:** Uses the Resend API to send the compiled digest to the target inbox.
+### 2.4 Data Ingestion Layer (Fetchers)
+Responsible for pulling content from external sources.
+*   **Standard RSS Fetchers:** Lenny's Newsletter, Ben's Bites, TechCrunch AI, Crunchbase News, Inc42, Entrackr, Aakash Gupta, OpenAI Blog, Google DeepMind.
+*   **Custom Fetchers:** Anthropic Blog, Product Hunt, Hacker News, The Rundown AI.
+*   **Enrichment:** Specific fallback fetching for Hacker News metadata.
 
 ## 3. Data Flow
 
-1.  **Trigger:** GitHub Actions cron job fires daily.
-2.  **Ingestion:** Fetchers pull data from the 10 defined sources.
-3.  **Filtration:** Raw items pass through the Quality Gate. Low-traction items are discarded.
-4.  **Enrichment:** Items lacking descriptions (e.g., HN) fetch metadata from their target URLs.
-5.  **Deduplication:** The deduplication engine cleans the list against today's items and historical state.
-6.  **AI Processing:** The list is sent to the AI Router. The Router manages LLM calls to Groq/Gemini to get summaries and tags.
-7.  **Formatting:** The processed data is formatted into an email template.
-8.  **Delivery:** The email is sent via Resend.
-9.  **State Update:** The lightweight state store is updated with today's sent items.
+1.  **Trigger:** `node-cron` fires at 09:00 AM IST on the Railway server.
+2.  **Ingestion:** Fetchers pull data from the 12+ defined sources.
+3.  **Filtration:** Raw items pass through the Quality Gate.
+4.  **Curation (Supervisor A):** Cleans, deduplicates, and formats data into a highly curated list.
+5.  **Summarization (Supervisor B):** Generates PM-focused summaries and dynamic tags.
+6.  **Formatting & Delivery (Supervisor B):** Compiles the HTML email template and dispatches via Resend API.
+7.  **State Update:** The lightweight state store (`sent_items.json`) is updated with today's sent items to ensure cross-day deduplication.
 
 ## 4. Infrastructure & Deployment
 
-*   **Compute & Scheduling:** GitHub Actions (cron trigger) serves as the primary runner for the daily batch job. Railway can be used for any persistent needs if the architecture evolves.
-*   **State Management:** Lightweight file-based store (e.g., a JSON file). To persist across GitHub Actions runs, this can be committed back to the repository or stored in a simple cloud bucket. No dedicated relational database to keep the system simple and maintainable.
-*   **Language/Runtime:** (To be decided, e.g., Python or Node.js).
+*   **Compute & Scheduling:** A persistent Node.js Express server deployed on **Railway**. The cron job is managed internally via `node-cron`.
+*   **State Management:** Lightweight file-based JSON stores (`sent_items.json`, `supervisor_memory.json`).
+*   **Language/Runtime:** TypeScript / Node.js.
 
 ## 5. Configuration & Security
 
-*   **Config Files:** Model names, context limits, and rate limits are stored in `models.yaml`, entirely separate from the codebase logic.
-*   **Secret Management:** API keys (Product Hunt, Groq, Gemini, Resend) are stored in `.env` for local dev and GitHub Actions/Railway environment variables for production. *Keys are never hardcoded or committed to version control.*
+*   **Secret Management:** Multi-key setup (Worker keys, Supervisor key, Safe-Side key, Resend key) are provided as Environment Variables in Railway. *Keys are never hardcoded or committed to version control.*

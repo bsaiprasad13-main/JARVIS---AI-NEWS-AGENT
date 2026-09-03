@@ -1,26 +1,27 @@
-# JARVIS - AI News Reporter
+# JARVIS - AI News Reporter (7-Agent Autonomous Architecture)
 
-JARVIS is an automated, AI-powered daily digest agent that curates, filters, and summarizes the best tech news, products, and articles from across the web, delivering a high-quality summary directly to your inbox every morning.
+JARVIS is an advanced, self-healing, multi-agent AI system that curates, filters, and summarizes the best tech news, products, and articles from across the web. It delivers a high-quality summary directly to your inbox every morning. 
 
-## 🚀 Features
+What started as a simple scraper is now a **7-Agent Autonomous Network** featuring self-healing code generation, dynamic fallback strategies, and persistent memory.
 
-- **Multi-Source Fetching**: Scrapes and aggregates data from top sources including:
-  - Hacker News
-  - Product Hunt
-  - The Rundown AI
-  - Standard RSS feeds
-- **Smart Quality Filtering**: Automatically filters out noise by enforcing source-specific quality bars (e.g., minimum upvotes or comments).
-- **AI Summarization & Deduplication**: Uses **Groq (Llama-3)** to intelligently summarize the content, extract key takeaways ("Why it matters"), and merge duplicate stories across different sources.
-- **Cross-Day Deduplication**: Maintains a local state store (`data/sent_items.json`) to guarantee you never receive the same news story twice.
-- **Automated Email Delivery**: Sends a beautifully formatted HTML email digest via the **Resend API**.
-- **Scheduled Execution**: Fully automated via GitHub Actions, and can be accurately triggered via [cron-job.org](https://cron-job.org).
+## 🚀 Key Features
+
+- **7-Agent Supervisor Architecture**: Two main supervisors (`SupervisorA` and `SupervisorB`) manage 4 data-processing workers and a reserve Safe-Side agent.
+- **Dynamic Failsafe Strategies**: On failure (e.g., 429 quota exhaustion), the system dynamically picks recovery strategies like `swap_to_safe_side`, `swap_to_smarter_model`, or `retry_immediately` without human intervention.
+- **Model Hierarchy Upgrades**: If data is too complex and causes bad JSON generation, workers automatically cycle up to smarter models (from `gemini-1.5-flash` to `gemini-1.5-pro`).
+- **Self-Healing Code Generation**: If a catastrophic, unhandled error occurs, the Safe-Side agent wakes up as a **Developer Agent**, writes a TypeScript patch to fix the bug, compiles it, pushes to GitHub, and triggers a Railway restart!
+- **Strategy Memory Persistence**: Supervisors persist past failures to `data/supervisor_memory.json` so the system "learns" from past errors across daily executions.
+- **Multi-Source Fetching**: Scrapes Hacker News, Product Hunt, The Rundown AI, Anthropic, OpenAI, DeepMind, and standard RSS feeds.
+- **Cross-Day Deduplication**: Maintains a local state store to guarantee you never receive the same news story twice.
+- **Automated Email Delivery**: Sends beautifully formatted HTML digests via the **Resend API**.
 
 ## 🛠️ Tech Stack
 
-- **TypeScript / Node.js**: Core runtime and scripting.
-- **Groq API**: Blazing fast LLM inference for text summarization.
-- **Resend**: Transactional email delivery.
-- **GitHub Actions**: CI/CD and automated workflow runner.
+- **TypeScript / Node.js**: Core runtime and agent orchestration.
+- **Google Gemini API**: Heavy-lifting LLM inference (utilizing a multi-key pool for rate-limit evasion).
+- **Express & Node-Cron**: Continuous server scheduling.
+- **Resend**: Transactional email delivery and webhooks.
+- **Railway**: Primary deployment and execution environment.
 
 ## ⚙️ Setup & Installation
 
@@ -42,11 +43,12 @@ JARVIS is an automated, AI-powered daily digest agent that curates, filters, and
    ```
    *Required variables:*
    - `PRODUCT_HUNT_API_KEY`
-   - `GROQ_API_KEY`
-   - `GEMINI_API_KEY` (if fallback/additional LLM features are used)
+   - `GEMINI_API_KEY_1` to `GEMINI_API_KEY_4` (Worker keys)
+   - `GEMINI_SAFE_SIDE_KEY` (Reserve/Developer key)
+   - `GEMINI_SUPERVISOR_KEY` (Orchestration key)
    - `RESEND_API_KEY`
-   - `RESEND_FROM_EMAIL` (Must be a verified domain on Resend)
-   - `RESEND_TO_EMAIL` (Comma-separated list of recipient emails)
+   - `RESEND_FROM_EMAIL` & `RESEND_TO_EMAIL`
+   - `SOS_ALERT_EMAIL` (For critical system failures)
 
 4. **Run locally:**
    ```bash
@@ -55,14 +57,9 @@ JARVIS is an automated, AI-powered daily digest agent that curates, filters, and
    npx tsx src/index.ts
    ```
 
-## ⏱️ Automation Setup (GitHub Actions)
+## ⏱️ Automation Setup (Railway)
 
-This project uses a GitHub Action (`.github/workflows/daily-digest.yml`) to run automatically. 
-
-To ensure the digest runs exactly on time without being subject to GitHub's internal cron queue delays, it is configured to use a `workflow_dispatch` trigger.
-1. Create a GitHub Personal Access Token (PAT) with `repo` permissions.
-2. Set up a free daily ping on [cron-job.org](https://cron-job.org) targeting your repository's dispatch endpoint.
-3. Pass your PAT as a Bearer token in the `Authorization` header.
+The project runs as a continuous Express server. Deploy this directly to **Railway**. The internal `node-cron` job will automatically trigger the 7-Agent workflow every day at exactly **09:00 AM IST**.
 
 ## 📝 License
 
