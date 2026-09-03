@@ -90,7 +90,7 @@ export class RateLimiter {
 
     // 2. Dispatch chunks with rate limiting
     for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+      const chunk = chunks[i]!;
       await this.checkAndEnforceLimits(chunk.tokens);
       
       console.log(`[RateLimiter] Dispatching chunk ${i + 1}/${chunks.length} (${chunk.items.length} items, ~${chunk.tokens} tokens)...`);

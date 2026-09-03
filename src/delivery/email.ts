@@ -79,3 +79,23 @@ function generateEmailHtml(items: ProcessedItem[]): string {
     </html>
   `;
 }
+
+export async function sendSOSAlert(errorMessage: string) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const toEmails = process.env.RESEND_TO_EMAIL?.split(',') || [];
+
+  if (!fromEmail || toEmails.length === 0) return;
+
+  try {
+    await resend.emails.send({
+      from: `Jarvis Supervisor <${fromEmail}>`,
+      to: toEmails,
+      subject: `🚨 JARVIS DIGEST FATAL ERROR`,
+      text: `The Jarvis digest workflow completely failed today.\n\nError details:\n${errorMessage}`,
+    });
+    console.log('SOS Alert email sent.');
+  } catch (error) {
+    console.error('Failed to send SOS alert email:', error);
+  }
+}
